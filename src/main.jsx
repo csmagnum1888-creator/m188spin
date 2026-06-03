@@ -169,9 +169,9 @@ function Landing() {
   );
 }
 
-function MemberGame({ showToast }) {
+function MemberGame({ showToast, forcedGame }) {
   const params = new URLSearchParams(window.location.search);
-  const game = params.get("game");
+  const game = forcedGame || params.get("game") || "spin";
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
   const [state, setState] = useState("entry");
@@ -238,8 +238,8 @@ function MemberGame({ showToast }) {
   return (
     <main className="gamePage">
       <div className="ticketBox">
-        <a className="back" href="/">← Kembali</a>
-        <p className="eyebrow">{game === "spin" ? "LUCKY SPIN" : "MESIN CAPIT"}</p>
+        <a className="back" href={game === "claw" ? "/" : "/claw"}>{game === "claw" ? "← Lucky Spin" : "Mesin Capit →"}</a>
+        <p className="eyebrow">{game === "spin" ? "LUCKY SPIN" : "MESIN CAPIT"} · SEMUA HADIAH MENANG</p>
         <h1>Masukkan Voucher</h1>
         <Field value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="KODE TIKET" maxLength={16} />
         <Field value={note} onChange={(e) => setNote(e.target.value)} placeholder="Catatan member, opsional" />
@@ -405,22 +405,25 @@ function Vouchers({ data, action }) {
 }
 
 function Prizes({ data, action }) {
-  const [form, setForm] = useState({ name: "", emoji: "🎁", color: "#FFD700", probability: 1, stock: "", active: true });
+  const [form, setForm] = useState({ name: "", grade: "A", image_url: "", emoji: "🎁", color: "#FFD700", probability: 1, stock: "", sorter: 0, active: true });
   const edit = (p) => setForm({ ...p, stock: p.stock ?? "" });
-  const save = () => action("save_prize", form, "Hadiah berhasil disimpan.").then(() => setForm({ name: "", emoji: "🎁", color: "#FFD700", probability: 1, stock: "", active: true }));
+  const save = () => action("save_prize", form, "Hadiah menang berhasil disimpan.").then(() => setForm({ name: "", grade: "A", image_url: "", emoji: "🎁", color: "#FFD700", probability: 1, stock: "", sorter: 0, active: true }));
   return (
     <div>
-      <Header title="Hadiah" subtitle="Atur hadiah, probability, warna, dan stock." />
+      <Header title="Hadiah" subtitle="Semua hadiah adalah win. Tidak ada opsi zonk, lose, atau coba lagi." />
       <div className="formGrid">
         <Field placeholder="Nama hadiah" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <Field placeholder="Grade" value={form.grade || ""} onChange={(e) => setForm({ ...form, grade: e.target.value })} />
+        <Field placeholder="Image URL opsional" value={form.image_url || ""} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
         <Field placeholder="Emoji" value={form.emoji} onChange={(e) => setForm({ ...form, emoji: e.target.value })} />
         <Field type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
         <Field type="number" min="1" value={form.probability} onChange={(e) => setForm({ ...form, probability: e.target.value })} />
         <Field type="number" min="0" placeholder="Stock kosong = unlimited" value={form.stock ?? ""} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+        <Field type="number" min="0" placeholder="Urutan" value={form.sorter || 0} onChange={(e) => setForm({ ...form, sorter: e.target.value })} />
         <Button onClick={save}>Simpan Hadiah</Button>
       </div>
       <div className="cardGrid">{data.prizes.map((p) => <article className="prizeCard" key={p.id} style={{ borderColor: `${p.color}55` }}>
-        <div className="emoji">{p.emoji}</div><h3>{p.name}</h3><p>Bobot {p.probability} · Stock {p.stock ?? "∞"} · {p.active ? "aktif" : "nonaktif"}</p>
+        <div className="emoji">{p.emoji}</div><h3>{p.name}</h3><p>Grade {p.grade || "A"} · Win · Bobot {p.probability} · Stock {p.stock ?? "∞"} · {p.active ? "aktif" : "nonaktif"}</p>
         <div className="rowActions"><button onClick={() => edit(p)}>Edit</button><button onClick={() => action("deactivate_prize", { id: p.id }, "Hadiah dinonaktifkan.")}>Nonaktif</button></div>
       </article>)}</div>
     </div>
@@ -500,7 +503,8 @@ function App() {
   const page = useMemo(() => {
     if (path === "/login") return <Login showToast={showToast} />;
     if (path === "/admin") return <Admin showToast={showToast} />;
-    return <MemberGame showToast={showToast} />;
+    if (path === "/claw") return <MemberGame showToast={showToast} forcedGame="claw" />;
+    return <MemberGame showToast={showToast} forcedGame="spin" />;
   }, [path]);
   return <>{page}<Toast toast={toast} onClose={() => setToast(null)} /></>;
 }

@@ -4,11 +4,14 @@ Website production-ready untuk Lucky Spin dan Mesin Capit dengan halaman member,
 
 ## Fitur
 
-- `/` untuk member memilih game dan redeem voucher.
+- `/` untuk member Lucky Spin dan redeem voucher.
+- `/claw` untuk member Mesin Capit dan redeem voucher.
 - `/login` untuk login admin.
 - `/admin` protected dashboard.
 - Superadmin bisa tambah admin, ubah role, reset password, dan menonaktifkan admin.
+- Semua hasil permainan adalah hadiah menang. Tidak ada hadiah zonk, lose, atau coba lagi.
 - Voucher hanya dipakai satu kali melalui RPC `redeem_voucher` yang atomic.
+- RPC hanya memilih prize aktif dengan `prize_status = 'win'`.
 - Password admin di-hash dengan bcrypt/pgcrypto, tidak plaintext.
 - `SUPABASE_SERVICE_ROLE_KEY` hanya dipakai di API server-side.
 
@@ -32,6 +35,8 @@ Default superadmin dari seed:
 - Password: `admin123`
 
 Segera ganti password setelah login pertama.
+
+Seed hadiah sengaja tidak menyertakan `ZONK / COBA LAGI`. Kolom `prize_status` di database juga dikunci hanya menerima nilai `win`, sehingga admin tidak bisa membuat hadiah bertipe kalah dari dashboard.
 
 ## Environment
 

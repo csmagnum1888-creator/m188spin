@@ -13,11 +13,15 @@ create table if not exists admins (
 create table if not exists prizes (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  grade text not null default 'A',
+  image_url text null,
   emoji text,
   color text,
   probability integer not null check (probability > 0),
+  prize_status text not null default 'win' check (prize_status = 'win'),
   stock integer null check (stock is null or stock >= 0),
   active boolean not null default true,
+  sorter integer not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -42,6 +46,7 @@ create table if not exists play_history (
   prize_id uuid not null references prizes(id) on delete restrict,
   prize_name text not null,
   prize_emoji text,
+  prize_status text not null default 'win' check (prize_status = 'win'),
   played_at timestamptz not null default now(),
   claim_status text not null default 'pending' check (claim_status in ('pending', 'claimed', 'cancelled'))
 );
@@ -99,7 +104,7 @@ begin
 
   select coalesce(sum(probability), 0) into v_total
   from prizes
-  where active = true and (stock is null or stock > 0);
+  where active = true and prize_status = 'win' and (stock is null or stock > 0);
 
   if v_total <= 0 then
     raise exception 'Belum ada hadiah aktif.';
@@ -111,7 +116,7 @@ begin
   from (
     select p.*, sum(probability) over (order by created_at, id) as running_weight
     from prizes p
-    where active = true and (stock is null or stock > 0)
+    where active = true and prize_status = 'win' and (stock is null or stock > 0)
   ) weighted
   where running_weight >= v_roll
   order by running_weight
@@ -125,7 +130,7 @@ begin
   if v_prize.id is null then
     select * into v_prize
     from prizes
-    where active = true and (stock is null or stock > 0)
+    where active = true and prize_status = 'win' and (stock is null or stock > 0)
     order by created_at desc
     limit 1
     for update;
@@ -143,20 +148,20 @@ begin
     update prizes set stock = greatest(stock - 1, 0) where id = v_prize.id;
   end if;
 
-  insert into play_history (voucher_id, voucher_code, game_type, prize_id, prize_name, prize_emoji)
-  values (v_voucher.id, v_voucher.code, p_game_type, v_prize.id, v_prize.name, v_prize.emoji)
+  insert into play_history (voucher_id, voucher_code, game_type, prize_id, prize_name, prize_emoji, prize_status)
+  values (v_voucher.id, v_voucher.code, p_game_type, v_prize.id, v_prize.name, v_prize.emoji, 'win')
   returning * into v_history;
 
   return jsonb_build_object(
     'voucher', jsonb_build_object('id', v_voucher.id, 'code', v_voucher.code, 'game_type', v_voucher.game_type),
-    'prize', jsonb_build_object('id', v_prize.id, 'name', v_prize.name, 'emoji', v_prize.emoji, 'color', v_prize.color),
+    'prize', jsonb_build_object('id', v_prize.id, 'name', v_prize.name, 'emoji', v_prize.emoji, 'color', v_prize.color, 'prize_status', 'win'),
     'history', to_jsonb(v_history),
     'prizes', (
       select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name, 'emoji', emoji, 'color', color) order by created_at), '[]'::jsonb)
       from (
         select id, name, emoji, color, created_at
         from prizes
-        where active = true
+        where active = true and prize_status = 'win'
         order by created_at
         limit 8
       ) active_prizes

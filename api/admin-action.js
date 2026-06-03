@@ -45,11 +45,15 @@ export default async function handler(req, res) {
     if (action === "save_prize") {
       const row = {
         name: payload.name,
+        grade: payload.grade || "A",
+        image_url: payload.image_url || null,
         emoji: payload.emoji || "🎁",
         color: payload.color || "#FFD700",
         probability: Number(payload.probability || 1),
+        prize_status: "win",
         stock: payload.stock === "" || payload.stock === undefined || payload.stock === null ? null : Number(payload.stock),
-        active: payload.active !== false
+        active: payload.active !== false,
+        sorter: Number(payload.sorter || 0)
       };
       const query = payload.id
         ? supabase.from("prizes").update(row).eq("id", payload.id).select("*").single()
