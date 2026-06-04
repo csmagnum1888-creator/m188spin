@@ -12,9 +12,14 @@ const DEFAULT_CONTENT = {
 };
 
 async function api(path, options = {}) {
+  const token = localStorage.getItem("admin_session");
   const res = await fetch(path, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {})
+    },
     credentials: "include"
   });
   const data = await res.json().catch(() => ({}));
@@ -311,9 +316,14 @@ function Login({ showToast }) {
     event.preventDefault();
     setLoading(true);
     try {
-      await api("/api/auth-login", { method: "POST", body: JSON.stringify({ email, password }) });
+      const result = await api("/api/admin/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      console.log("login api result", { ok: true, admin: result.admin });
+      if (!result.token) throw new Error("Login berhasil, tetapi token session tidak diterima.");
+      localStorage.setItem("admin_session", result.token);
+      console.log("session saved", { key: "admin_session", hasToken: true });
       window.location.href = "/admin";
     } catch (error) {
+      console.log("login api result", { ok: false, error: error.message });
       showToast(error.message, "error");
     } finally {
       setLoading(false);
@@ -340,8 +350,14 @@ function Admin({ showToast }) {
   const load = async () => {
     try {
       setLoading(true);
-      setData(await api("/api/admin-data"));
-    } catch {
+      const token = localStorage.getItem("admin_session");
+      console.log("protected route session check", { path: "/admin", hasToken: Boolean(token) });
+      const dashboardData = await api("/api/admin-data");
+      console.log("protected route session check", { path: "/admin", valid: true, admin: dashboardData.admin });
+      setData(dashboardData);
+    } catch (error) {
+      console.log("protected route session check", { path: "/admin", valid: false, error: error.message });
+      localStorage.removeItem("admin_session");
       window.location.href = "/login";
     } finally {
       setLoading(false);
@@ -362,6 +378,7 @@ function Admin({ showToast }) {
 
   const logout = async () => {
     await api("/api/auth-login", { method: "DELETE" });
+    localStorage.removeItem("admin_session");
     window.location.href = "/login";
   };
 

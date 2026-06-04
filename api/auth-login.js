@@ -43,5 +43,6 @@ export default async function handler(req, res) {
   setSessionCookie(res, token);
   await addLog(supabase, admin.id, "login_admin", { email: admin.email }, req);
 
-  return json(res, 200, { admin });
+  console.log("login api result", { ok: true, admin_id: admin.id, email: admin.email, role: admin.role });
+  return json(res, 200, { admin, token });
 }
