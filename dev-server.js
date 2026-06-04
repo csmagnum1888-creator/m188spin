@@ -11,7 +11,13 @@ const apiModules = {
   "/api/auth-me": () => import("./api/auth-me.js"),
   "/api/admin-data": () => import("./api/admin-data.js"),
   "/api/admin-action": () => import("./api/admin-action.js"),
-  "/api/redeem-voucher": () => import("./api/redeem-voucher.js")
+  "/api/redeem-voucher": () => import("./api/redeem-voucher.js"),
+  "/api/public-settings": () => import("./api/public-settings.js"),
+  "/api/visitor-log": () => import("./api/visitor-log.js"),
+  "/api/admin/login": () => import("./api/admin/login.js"),
+  "/api/admin/logout": () => import("./api/admin/logout.js"),
+  "/api/voucher/redeem": () => import("./api/voucher/redeem.js"),
+  "/api/admin/vouchers/generate": () => import("./api/admin/vouchers/generate.js")
 };
 
 for (const [path, loader] of Object.entries(apiModules)) {

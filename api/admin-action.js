@@ -22,6 +22,10 @@ export default async function handler(req, res) {
   const { action, payload = {} } = req.body || {};
   const supabase = adminClient();
 
+  if (admin.role === "viewer") {
+    return json(res, 403, { error: "Viewer hanya boleh melihat dashboard." });
+  }
+
   try {
     if (action === "generate_vouchers") {
       const count = Math.min(Math.max(Number(payload.count || 1), 1), 500);
@@ -31,14 +35,14 @@ export default async function handler(req, res) {
       const rows = codes.map((voucherCode) => ({ code: voucherCode, game_type: gameType, status: "unused", created_by: admin.id }));
       const { data, error } = await supabase.from("vouchers").insert(rows).select("*");
       if (error) throw error;
-      await addLog(supabase, admin.id, "generate_voucher", { count, game_type: gameType });
+      await addLog(supabase, admin.id, "generate_voucher", { count, game_type: gameType }, req);
       return json(res, 200, { data });
     }
 
     if (action === "void_voucher") {
       const { error } = await supabase.from("vouchers").update({ status: "void" }).eq("id", payload.id).eq("status", "unused");
       if (error) throw error;
-      await addLog(supabase, admin.id, "void_voucher", { id: payload.id });
+      await addLog(supabase, admin.id, "void_voucher", { id: payload.id }, req);
       return json(res, 200, { ok: true });
     }
 
@@ -60,14 +64,14 @@ export default async function handler(req, res) {
         : supabase.from("prizes").insert(row).select("*").single();
       const { data, error } = await query;
       if (error) throw error;
-      await addLog(supabase, admin.id, payload.id ? "edit_prize" : "add_prize", { id: data.id, name: data.name });
+      await addLog(supabase, admin.id, payload.id ? "edit_prize" : "add_prize", { id: data.id, name: data.name }, req);
       return json(res, 200, { data });
     }
 
     if (action === "deactivate_prize") {
       const { error } = await supabase.from("prizes").update({ active: false }).eq("id", payload.id);
       if (error) throw error;
-      await addLog(supabase, admin.id, "deactivate_prize", { id: payload.id });
+      await addLog(supabase, admin.id, "deactivate_prize", { id: payload.id }, req);
       return json(res, 200, { ok: true });
     }
 
@@ -75,8 +79,39 @@ export default async function handler(req, res) {
       const status = ["pending", "claimed", "cancelled"].includes(payload.status) ? payload.status : "pending";
       const { error } = await supabase.from("play_history").update({ claim_status: status }).eq("id", payload.id);
       if (error) throw error;
-      await addLog(supabase, admin.id, "update_claim_status", { id: payload.id, status });
+      await addLog(supabase, admin.id, "update_claim_status", { id: payload.id, status }, req);
       return json(res, 200, { ok: true });
+    }
+
+    if (action === "save_content") {
+      const row = {
+        label: payload.label || payload.key,
+        value: payload.value || "",
+        asset_type: ["image", "audio", "text"].includes(payload.asset_type) ? payload.asset_type : "image",
+        is_active: payload.is_active !== false,
+        updated_at: new Date().toISOString()
+      };
+      const { data, error } = await supabase
+        .from("contents")
+        .update(row)
+        .eq("key", payload.key)
+        .select("*")
+        .single();
+      if (error) throw error;
+      await addLog(supabase, admin.id, "update_content_setting", { key: data.key, value: data.value }, req);
+      return json(res, 200, { data });
+    }
+
+    if (action === "save_site_setting") {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .update({ value: payload.value || {}, is_active: payload.is_active !== false, updated_at: new Date().toISOString() })
+        .eq("key", payload.key || "site")
+        .select("*")
+        .single();
+      if (error) throw error;
+      await addLog(supabase, admin.id, "update_site_setting", { key: data.key }, req);
+      return json(res, 200, { data });
     }
 
     if (["add_admin", "update_admin", "deactivate_admin", "reset_admin_password"].includes(action)) {
@@ -84,7 +119,7 @@ export default async function handler(req, res) {
       if (!superadmin) return;
 
       if (action === "add_admin") {
-        const role = payload.role === "superadmin" ? "superadmin" : "admin";
+        const role = ["superadmin", "admin", "viewer"].includes(payload.role) ? payload.role : "admin";
         const password_hash = await hashPassword(payload.password || "");
         const row = {
           name: payload.name,
@@ -96,13 +131,13 @@ export default async function handler(req, res) {
         if (!row.name || !row.email || !payload.password) return json(res, 400, { error: "Nama, email, dan password wajib diisi." });
         const { data, error } = await supabase.from("admins").insert(row).select("id,name,email,role,is_active,created_at").single();
         if (error) throw error;
-        await addLog(supabase, admin.id, "add_admin", { id: data.id, email: data.email, role: data.role });
+        await addLog(supabase, admin.id, "add_admin", { id: data.id, email: data.email, role: data.role }, req);
         return json(res, 200, { data });
       }
 
       if (action === "update_admin") {
         if (payload.id === admin.id && payload.role !== "superadmin") return json(res, 400, { error: "Tidak bisa menurunkan role akun sendiri." });
-        const role = payload.role === "superadmin" ? "superadmin" : "admin";
+        const role = ["superadmin", "admin", "viewer"].includes(payload.role) ? payload.role : "admin";
         const { data, error } = await supabase
           .from("admins")
           .update({ name: payload.name, role, is_active: payload.is_active !== false })
@@ -110,7 +145,7 @@ export default async function handler(req, res) {
           .select("id,name,email,role,is_active,created_at")
           .single();
         if (error) throw error;
-        await addLog(supabase, admin.id, "edit_admin", { id: data.id, role: data.role, is_active: data.is_active });
+        await addLog(supabase, admin.id, "edit_admin", { id: data.id, role: data.role, is_active: data.is_active }, req);
         return json(res, 200, { data });
       }
 
@@ -120,7 +155,7 @@ export default async function handler(req, res) {
         if (target?.role === "superadmin" && admin.role !== "superadmin") return json(res, 403, { error: "Admin biasa tidak boleh menghapus superadmin." });
         const { error } = await supabase.from("admins").update({ is_active: false }).eq("id", payload.id);
         if (error) throw error;
-        await addLog(supabase, admin.id, "deactivate_admin", { id: payload.id });
+        await addLog(supabase, admin.id, "deactivate_admin", { id: payload.id }, req);
         return json(res, 200, { ok: true });
       }
 
@@ -129,7 +164,7 @@ export default async function handler(req, res) {
         const password_hash = await hashPassword(payload.password);
         const { error } = await supabase.from("admins").update({ password_hash }).eq("id", payload.id);
         if (error) throw error;
-        await addLog(supabase, admin.id, "reset_admin_password", { id: payload.id });
+        await addLog(supabase, admin.id, "reset_admin_password", { id: payload.id }, req);
         return json(res, 200, { ok: true });
       }
     }

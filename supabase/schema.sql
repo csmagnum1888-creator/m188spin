@@ -5,7 +5,7 @@ create table if not exists admins (
   name text not null,
   email text unique not null,
   password_hash text not null,
-  role text not null check (role in ('superadmin', 'admin')),
+  role text not null check (role in ('superadmin', 'admin', 'viewer')),
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -56,6 +56,37 @@ create table if not exists admin_logs (
   admin_id uuid null references admins(id) on delete set null,
   action text not null,
   detail jsonb not null default '{}'::jsonb,
+  ip_address text null,
+  user_agent text null,
+  url text null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists contents (
+  id uuid primary key default gen_random_uuid(),
+  key text unique not null,
+  label text not null,
+  value text null,
+  asset_type text not null default 'image' check (asset_type in ('image', 'audio', 'text')),
+  is_active boolean not null default true,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists site_settings (
+  id uuid primary key default gen_random_uuid(),
+  key text unique not null,
+  value jsonb not null default '{}'::jsonb,
+  is_active boolean not null default true,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists visitor_logs (
+  id uuid primary key default gen_random_uuid(),
+  path text not null,
+  ip_address text null,
+  user_agent text null,
   created_at timestamptz not null default now()
 );
 
@@ -63,6 +94,7 @@ create index if not exists vouchers_code_idx on vouchers (upper(code));
 create index if not exists vouchers_status_idx on vouchers (status);
 create index if not exists play_history_played_at_idx on play_history (played_at desc);
 create index if not exists admin_logs_created_at_idx on admin_logs (created_at desc);
+create index if not exists visitor_logs_created_at_idx on visitor_logs (created_at desc);
 
 create or replace function redeem_voucher(
   p_code text,
@@ -171,3 +203,10 @@ end;
 $$;
 
 grant execute on function redeem_voucher(text, text, text) to anon, authenticated;
+
+insert into storage.buckets (id, name, public)
+values
+  ('prize-images', 'prize-images', true),
+  ('content-assets', 'content-assets', true),
+  ('audio-assets', 'audio-assets', true)
+on conflict (id) do nothing;

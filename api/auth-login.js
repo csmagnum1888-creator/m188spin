@@ -1,9 +1,13 @@
-import { addLog, adminClient, clearSessionCookie, json, method, setSessionCookie, signAdmin, verifyPassword } from "./_shared.js";
+import { addLog, adminClient, clearSessionCookie, json, method, optionalAdmin, setSessionCookie, signAdmin, verifyPassword } from "./_shared.js";
 
 export default async function handler(req, res) {
   if (!method(req, res, ["POST", "DELETE"])) return;
 
   if (req.method === "DELETE") {
+    const admin = await optionalAdmin(req);
+    if (admin) {
+      await addLog(adminClient(), admin.id, "logout_admin", { email: admin.email }, req);
+    }
     clearSessionCookie(res);
     return json(res, 200, { ok: true });
   }
@@ -24,7 +28,7 @@ export default async function handler(req, res) {
 
   const token = signAdmin(admin);
   setSessionCookie(res, token);
-  await addLog(supabase, admin.id, "login", { email: admin.email });
+  await addLog(supabase, admin.id, "login_admin", { email: admin.email }, req);
 
   const { password_hash, ...safeAdmin } = admin;
   return json(res, 200, { admin: safeAdmin });

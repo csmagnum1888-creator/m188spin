@@ -18,3 +18,19 @@ insert into prizes (name, grade, emoji, color, probability, prize_status, stock,
   ('Rp 50.000', 'C', '💸', '#E74C3C', 18, 'win', null, true, 7),
   ('Rp 10.000', 'C', '🎟️', '#3498DB', 23, 'win', null, true, 8)
 on conflict do nothing;
+
+insert into contents (key, label, value, asset_type, is_active) values
+  ('logo', 'Logo', '/assets/logo.png', 'image', true),
+  ('favicon', 'Favicon', '/assets/favicon.png', 'image', true),
+  ('spin_background', 'Background Lucky Spin', '/assets/spin-background.jpg', 'image', true),
+  ('claw_background', 'Background Mesin Capit', '/assets/claw-background.jpg', 'image', true),
+  ('wheel_image', 'Wheel Image', '/assets/wheel.png', 'image', true),
+  ('pointer_image', 'Pointer Image', '', 'image', true),
+  ('music_background', 'Music Background', '', 'audio', false),
+  ('sound_spin', 'Sound Spin', '', 'audio', false),
+  ('sound_win', 'Sound Win', '', 'audio', false)
+on conflict (key) do nothing;
+
+insert into site_settings (key, value, is_active) values
+  ('site', '{"name":"Lucky Arcade","memberNote":"Semua voucher menghasilkan hadiah menang. Screenshot hasil untuk klaim ke admin."}'::jsonb, true)
+on conflict (key) do nothing;

@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { createClient } from "@supabase/supabase-js";
 
-const cookieName = "lucky_admin_session";
+export const cookieName = "lucky_admin_session";
 
 export function json(res, status, body) {
   return res.status(status).json(body);
@@ -93,8 +93,39 @@ export async function requireAdmin(req, res, requireSuperadmin = false) {
   }
 }
 
-export async function addLog(supabase, adminId, action, detail = {}) {
-  await supabase.from("admin_logs").insert({ admin_id: adminId || null, action, detail });
+export async function optionalAdmin(req) {
+  const raw = req.headers.cookie || "";
+  const parsed = cookie.parse(raw);
+  const token = parsed[cookieName] || req.headers.authorization?.replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
+    const { data } = await adminClient()
+      .from("admins")
+      .select("id,name,email,role,is_active,created_at")
+      .eq("id", payload.sub)
+      .single();
+    return data?.is_active ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export function requestMeta(req) {
+  return {
+    ip_address: String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0] || null,
+    user_agent: req.headers["user-agent"] || null,
+    url: req.url || null
+  };
+}
+
+export async function addLog(supabase, adminId, action, detail = {}, req = null) {
+  await supabase.from("admin_logs").insert({
+    admin_id: adminId || null,
+    action,
+    detail,
+    ...(req ? requestMeta(req) : {})
+  });
 }
 
 export async function hashPassword(password) {
