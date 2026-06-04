@@ -6,7 +6,11 @@ values (
   'superadmin',
   true
 )
-on conflict (email) do nothing;
+on conflict (email) do update set
+  name = excluded.name,
+  password_hash = excluded.password_hash,
+  role = excluded.role,
+  is_active = true;
 
 insert into prizes (name, grade, emoji, color, probability, prize_status, stock, active, sorter) values
   ('Honda PCX 160', 'S', '🏍️', '#FFD700', 1, 'win', 1, true, 1),

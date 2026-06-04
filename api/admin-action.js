@@ -1,4 +1,4 @@
-import { addLog, adminClient, hashPassword, json, method, requireAdmin } from "./_shared.js";
+import { addLog, adminClient, json, method, requireAdmin } from "./_shared.js";
 
 function code(length = 8) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -120,7 +120,8 @@ export default async function handler(req, res) {
 
       if (action === "add_admin") {
         const role = ["superadmin", "admin", "viewer"].includes(payload.role) ? payload.role : "admin";
-        const password_hash = await hashPassword(payload.password || "");
+        const { data: password_hash, error: hashError } = await supabase.rpc("hash_admin_password", { p_password: payload.password || "" });
+        if (hashError) throw hashError;
         const row = {
           name: payload.name,
           email: String(payload.email || "").toLowerCase().trim(),
@@ -161,7 +162,8 @@ export default async function handler(req, res) {
 
       if (action === "reset_admin_password") {
         if (!payload.password) return json(res, 400, { error: "Password baru wajib diisi." });
-        const password_hash = await hashPassword(payload.password);
+        const { data: password_hash, error: hashError } = await supabase.rpc("hash_admin_password", { p_password: payload.password });
+        if (hashError) throw hashError;
         const { error } = await supabase.from("admins").update({ password_hash }).eq("id", payload.id);
         if (error) throw error;
         await addLog(supabase, admin.id, "reset_admin_password", { id: payload.id }, req);

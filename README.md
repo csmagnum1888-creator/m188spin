@@ -47,6 +47,8 @@ Untuk membuat hash password manual di SQL Supabase:
 select crypt('password-baru', gen_salt('bf', 12));
 ```
 
+Jika login `admin@admin.com` / `admin123` masih gagal setelah update kode, jalankan `supabase/login-fix.sql` di Supabase SQL Editor. File itu membuat RPC `verify_admin_login`, membuat helper hash pgcrypto, dan menyetel ulang default superadmin memakai `crypt('admin123', gen_salt('bf', 12))`.
+
 ## Environment
 
 Copy `.env.example` menjadi `.env`, lalu isi:

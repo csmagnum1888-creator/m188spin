@@ -1,6 +1,5 @@
 import cookie from "cookie";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 import { createClient } from "@supabase/supabase-js";
 
 export const cookieName = "lucky_admin_session";
@@ -126,12 +125,4 @@ export async function addLog(supabase, adminId, action, detail = {}, req = null)
     detail,
     ...(req ? requestMeta(req) : {})
   });
-}
-
-export async function hashPassword(password) {
-  return bcrypt.hash(password, 12);
-}
-
-export async function verifyPassword(password, hash) {
-  return bcrypt.compare(password, hash);
 }

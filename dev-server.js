@@ -1,8 +1,9 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
+import { createServer as createViteServer, loadEnv } from "vite";
 
 const app = express();
 const port = Number(process.env.PORT || 5173);
+Object.assign(process.env, loadEnv(process.env.NODE_ENV || "development", process.cwd(), ""));
 
 app.use(express.json());
 

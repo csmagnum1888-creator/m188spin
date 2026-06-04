@@ -1,4 +1,4 @@
-import { addLog, adminClient, clearSessionCookie, json, method, optionalAdmin, setSessionCookie, signAdmin, verifyPassword } from "./_shared.js";
+import { addLog, adminClient, clearSessionCookie, json, method, optionalAdmin, setSessionCookie, signAdmin } from "./_shared.js";
 
 export default async function handler(req, res) {
   if (!method(req, res, ["POST", "DELETE"])) return;
@@ -16,20 +16,32 @@ export default async function handler(req, res) {
   if (!email || !password) return json(res, 400, { error: "Email dan password wajib diisi." });
 
   const supabase = adminClient();
-  const { data: admin, error } = await supabase
-    .from("admins")
-    .select("id,name,email,password_hash,role,is_active,created_at")
-    .eq("email", String(email).toLowerCase().trim())
-    .single();
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const { data, error } = await supabase.rpc("verify_admin_login", {
+    p_email: normalizedEmail,
+    p_password: String(password)
+  });
 
-  if (error || !admin || !admin.is_active) return json(res, 401, { error: "Login gagal." });
-  const ok = await verifyPassword(password, admin.password_hash);
-  if (!ok) return json(res, 401, { error: "Login gagal." });
+  const admin = Array.isArray(data) ? data[0] : null;
+  if (error || !admin) {
+    const { data: existing } = await supabase
+      .from("admins")
+      .select("id,email,is_active")
+      .ilike("email", normalizedEmail)
+      .maybeSingle();
+    const reason = !existing ? "email_not_found" : existing.is_active ? "wrong_password" : "inactive_admin";
+    await addLog(supabase, existing?.id || null, "login_admin_failed", { email: normalizedEmail, reason }, req);
+    const message = reason === "inactive_admin"
+      ? "Akun admin tidak aktif."
+      : reason === "email_not_found"
+        ? "Email admin tidak ditemukan."
+        : "Password admin salah.";
+    return json(res, 401, { error: message });
+  }
 
   const token = signAdmin(admin);
   setSessionCookie(res, token);
   await addLog(supabase, admin.id, "login_admin", { email: admin.email }, req);
 
-  const { password_hash, ...safeAdmin } = admin;
-  return json(res, 200, { admin: safeAdmin });
+  return json(res, 200, { admin });
 }
